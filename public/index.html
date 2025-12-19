@@ -3033,6 +3033,12 @@
                             this.watchHistory = history.filter(item =>
                                 new Date(item.watchedAt).getTime() > thirtyDaysAgo
                             );
+
+                            // 确保不超过30条
+                            if (this.watchHistory.length > 30) {
+                                this.watchHistory = this.watchHistory.slice(0, 30);
+                            }
+
                             // 如果有过滤，更新存储
                             if (this.watchHistory.length !== history.length) {
                                 this.saveWatchHistoryToStorage();
@@ -3042,6 +3048,45 @@
                         }
                     } catch (e) {
                         console.error('[观看历史] 加载失败:', e);
+                    }
+                    // 同时清理过期的进度记录
+                    this.cleanUpOldProgress();
+                },
+
+                // 清理过期的进度记忆（超过30天）
+                cleanUpOldProgress() {
+                    const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
+                    const keysToRemove = [];
+
+                    try {
+                        for (let i = 0; i < localStorage.length; i++) {
+                            const key = localStorage.key(i);
+                            if (key && key.startsWith('donggua_progress_')) {
+                                try {
+                                    const value = localStorage.getItem(key);
+                                    if (value) {
+                                        const data = JSON.parse(value);
+                                        if (data && data.date) {
+                                            const savedDate = new Date(data.date).getTime();
+                                            if (savedDate < thirtyDaysAgo) {
+                                                keysToRemove.push(key);
+                                            }
+                                        } else {
+                                            keysToRemove.push(key); // 格式不对也清理
+                                        }
+                                    }
+                                } catch (e) {
+                                    keysToRemove.push(key); // 解析失败也清理
+                                }
+                            }
+                        }
+
+                        if (keysToRemove.length > 0) {
+                            console.log('[清理] 删除过期进度记录:', keysToRemove.length, '条');
+                            keysToRemove.forEach(key => localStorage.removeItem(key));
+                        }
+                    } catch (e) {
+                        console.error('[清理] 进度清理失败:', e);
                     }
                 },
 
